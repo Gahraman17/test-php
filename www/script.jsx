@@ -23,6 +23,7 @@ function ContactForm() {
       };
   
       setDispos([...dispos, newDispo]);
+      fp.clear(); // Clear after adding
     };
   
     const removeDispo = (index) => {
@@ -49,54 +50,43 @@ function ContactForm() {
     }, [dispos]);
   
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setSuccessMsg("");
-        setErrorMsg("");
-      
-        const form = document.getElementById("contact-form");
-        const formData = new FormData(form);
-      
-        // Debug what's in FormData
-        console.log("Form data contents:");
-        for (let pair of formData.entries()) {
-          console.log(pair[0] + ': ' + pair[1]);
-        }
-      
+      e.preventDefault();
+      setSuccessMsg("");
+      setErrorMsg("");
+  
+      const form = document.getElementById("contact-form");
+      const formData = new FormData(form);
+  
+      try {
+        const response = await fetch("./submit.php", {
+          method: "POST",
+          body: formData,
+        });
+  
+        const responseText = await response.text();
+  
         try {
-          console.log("Sending request to ./submit.php");
-          const response = await fetch("./submit.php", {
-            method: "POST",
-            body: formData,
-          });
-          
-          console.log("Response status:", response.status);
-          
-          // Try to get the text first to see what's actually returned
-          const responseText = await response.text();
-          console.log("Raw response:", responseText);
-          
-          // Now try to parse it as JSON
-          try {
-            const result = JSON.parse(responseText);
-            console.log("Parsed result:", result);
-            
-            if (result.success) {
-              setSuccessMsg("✅ Message envoyé avec succès !");
-              setDispos([]);
-              form.reset();
-              dateInputRef.current._flatpickr.clear();
-            } else {
-              setErrorMsg(result.message || "❌ Une erreur s'est produite.");
-            }
-          } catch (jsonErr) {
-            console.error("Failed to parse JSON:", jsonErr);
-            setErrorMsg("❌ Réponse du serveur invalide: " + responseText.substring(0, 100));
+          const result = JSON.parse(responseText);
+          if (result.success) {
+            setSuccessMsg("✅ Message envoyé avec succès !");
+            setDispos([]);
+            form.reset();
+            dateInputRef.current._flatpickr.clear();
+  
+            setTimeout(() => setSuccessMsg(""), 4000);
+          } else {
+            setErrorMsg(result.message || "❌ Une erreur s'est produite.");
+            setTimeout(() => setErrorMsg(""), 4000);
           }
-        } catch (err) {
-          console.error("Fetch error:", err);
-          setErrorMsg("❌ Erreur de connexion au serveur: " + err.message);
+        } catch (jsonErr) {
+          setErrorMsg("❌ Réponse du serveur invalide: " + responseText.substring(0, 100));
+          setTimeout(() => setErrorMsg(""), 4000);
         }
-      };
+      } catch (err) {
+        setErrorMsg("❌ Erreur de connexion au serveur: " + err.message);
+        setTimeout(() => setErrorMsg(""), 4000);
+      }
+    };
   
     return (
       <div className="container">
@@ -105,8 +95,16 @@ function ContactForm() {
             <div className="form-left">
               <h1>Contactez l’agence</h1>
   
-              {errorMsg && <div style={{ color: "red" }}>{errorMsg}</div>}
-              {successMsg && <div style={{ color: "green" }}>{successMsg}</div>}
+              {errorMsg && (
+                <div className="toast error-toast">
+                    {errorMsg}
+                </div>
+                )}
+                {successMsg && (
+                <div className="toast success-toast">
+                    {successMsg}
+                </div>
+                )}
   
               <h3>Vos coordonnées</h3>
               <div className="civilite">
@@ -153,7 +151,4 @@ function ContactForm() {
       </div>
     );
   }
-  
-  const root = ReactDOM.createRoot(document.getElementById("app"));
-  root.render(<ContactForm />);
   
